@@ -1,14 +1,56 @@
-# BusiOS AI
+# BusiOS AI™
 
 **The AI Operating System for Small Business**
 
-BusiOS gives small-business owners an AI operating team through WhatsApp. Diego, the owner-facing intelligence agent, learns the business, connects signals across specialist agents, recommends high-impact actions, and executes only after explicit approval.
+BusiOS gives small-business owners one AI operating team through WhatsApp. Diego, the owner-facing intelligence agent, learns the business, connects signals across specialist agents, recommends the most useful next action, and coordinates execution only after explicit owner approval.
 
-> Status: initial repository bootstrap. Product code is developed through reviewed pull requests.
+## The defining loop
 
-## Core loop
+**Observe → Understand → Predict → Recommend → Approve → Execute → Measure → Learn**
 
-Observe → Understand → Predict → Recommend → Approve → Execute → Measure → Learn
+This repository contains the first deployable vertical slice: conversational WhatsApp onboarding, a structured Business Brain, Gemini-powered Diego conversations, evidence-linked opportunity cards, approval controls, Supabase persistence, audit events, Twilio verification, tests, and container deployment.
+
+## Quick start
+
+```bash
+cp .env.example .env
+npm ci
+npm run check
+npm run dev
+```
+
+The local service listens on port `8080`. `GET /health` reports readiness. A complete setup requires Gemini, Twilio WhatsApp, and Supabase credentials; see [Deployment](docs/DEPLOYMENT.md).
+
+## WhatsApp experience
+
+1. The owner messages Diego and answers 10 short onboarding questions.
+2. Answers seed one tenant-scoped Business Brain.
+3. Normal messages receive context-aware operational guidance.
+4. A message beginning with `signals:` asks Diego to connect cross-functional evidence.
+5. Diego returns one opportunity with predicted impact and confidence.
+6. `APPROVE` records authorization; external execution remains simulated until its adapter is verified.
+
+## AI workforce
+
+| Agent | Focus |
+|---|---|
+| Marisol | Reception, intake, appointments |
+| Miguel | Marketing and promotions |
+| Zulma | Sales and follow-up |
+| Enrique | Operations and capacity |
+| Lola | Finance and invoices |
+| Julio | Local SEO and visibility |
+| Maria | Reviews and reputation |
+| Diego | Business intelligence and orchestration |
+
+## Project map
+
+- `src/` — webhook, onboarding, orchestration, Gemini intelligence, storage
+- `tests/` — business-flow and safety tests
+- `supabase/migrations/` — initial persistence and audit schema
+- `docs/ARCHITECTURE.md` — system boundaries, safety, and agent model
+- `docs/DEPLOYMENT.md` — production and Twilio setup
+- `docs/PRODUCT.md` — scope, success metrics, pilot, and roadmap
 
 ## Product principles
 
@@ -18,10 +60,10 @@ Observe → Understand → Predict → Recommend → Approve → Execute → Mea
 - Evidence-linked recommendations and measurable outcomes
 - Privacy, tenant isolation, auditability, and safe defaults
 
-## Documentation
+## Current boundary
 
-The deployment-ready MVP, architecture, operations guide, and product roadmap will be introduced in the first foundation pull request.
+This is a deployment-ready **MVP foundation**, not an unsupervised autonomous business operator. Real outbound campaigns, calendar changes, accounting actions, and customer follow-ups require separately configured and tested adapters. The MVP deliberately records approvals and simulates execution to prevent false claims or accidental live actions.
 
 ## License
 
-Copyright © 2026 CSIX AI LABS LLC. All rights reserved. See `LICENSE`.
+Copyright © 2026 CSIX AI LABS LLC. All rights reserved. See [LICENSE](LICENSE).
