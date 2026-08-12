@@ -50,6 +50,7 @@ The local service listens on port `8080`. `GET /health` reports readiness. A com
 - `supabase/migrations/` — initial persistence and audit schema
 - `docs/ARCHITECTURE.md` — system boundaries, safety, and agent model
 - `docs/DEPLOYMENT.md` — production and Twilio setup
+- `docs/CLOUD_RUN.md` — Google Cloud bootstrap and automated deployment
 - `docs/PRODUCT.md` — scope, success metrics, pilot, and roadmap
 
 ## Product principles

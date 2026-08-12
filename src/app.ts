@@ -14,8 +14,10 @@ export function createApp(orchestrator: Orchestrator) {
   app.post('/webhooks/twilio/whatsapp', express.urlencoded({ extended: false }), async (req, res) => {
     if (config.NODE_ENV !== 'test') {
       const signature = req.header('x-twilio-signature') ?? '';
-      const url = `${config.PUBLIC_BASE_URL}/webhooks/twilio/whatsapp`;
-      if (!config.TWILIO_AUTH_TOKEN || !config.PUBLIC_BASE_URL || !twilio.validateRequest(config.TWILIO_AUTH_TOKEN, signature, url, req.body)) {
+      const url = config.PUBLIC_BASE_URL
+        ? `${config.PUBLIC_BASE_URL}/webhooks/twilio/whatsapp`
+        : `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      if (!config.TWILIO_AUTH_TOKEN || !twilio.validateRequest(config.TWILIO_AUTH_TOKEN, signature, url, req.body)) {
         res.status(403).send('Invalid Twilio signature'); return;
       }
     }
