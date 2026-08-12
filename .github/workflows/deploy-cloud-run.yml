@@ -1,0 +1,69 @@
+name: Deploy to Cloud Run
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: busios-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: gen-lang-client-0812085032
+  REGION: us-central1
+  SERVICE: busios-ai
+  REPOSITORY: busios
+  IMAGE: us-central1-docker.pkg.dev/gen-lang-client-0812085032/busios/api
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Artifact Registry
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and push image
+        run: |
+          docker build --tag "${IMAGE}:${GITHUB_SHA}" .
+          docker push "${IMAGE}:${GITHUB_SHA}"
+
+      - id: deploy
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE }}:${{ github.sha }}
+          flags: >-
+            --allow-unauthenticated
+            --service-account=busios-runtime@gen-lang-client-0812085032.iam.gserviceaccount.com
+            --port=8080
+            --memory=512Mi
+            --cpu=1
+            --min=0
+            --max=3
+            --concurrency=40
+            --set-env-vars=NODE_ENV=production,GEMINI_MODEL=gemini-2.5-flash
+            --set-secrets=GEMINI_API_KEY=busios-gemini-api-key:latest,TWILIO_ACCOUNT_SID=busios-twilio-account-sid:latest,TWILIO_AUTH_TOKEN=busios-twilio-auth-token:latest,SUPABASE_URL=busios-supabase-url:latest,SUPABASE_SERVICE_ROLE_KEY=busios-supabase-service-role-key:latest,APP_ENCRYPTION_KEY=busios-app-encryption-key:latest
+
+      - name: Verify health endpoint
+        run: curl --fail --retry 8 --retry-delay 5 "${{ steps.deploy.outputs.url }}/health"
+
+      - name: Deployment summary
+        run: echo "### BusiOS deployed to ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"

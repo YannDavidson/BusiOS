@@ -1,9 +1,11 @@
-node_modules/
-dist/
-coverage/
+node_modules
+dist
+coverage
+.git
+.github
 .env
 .env.*
 !.env.example
 *.log
-.DS_Store
 gha-creds-*.json
+upload

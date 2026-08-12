@@ -18,7 +18,7 @@ export const config = schema.parse(process.env);
 
 export function assertProductionConfig() {
   if (config.NODE_ENV !== 'production') return;
-  const required = ['PUBLIC_BASE_URL', 'GEMINI_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'APP_ENCRYPTION_KEY'] as const;
+  const required = ['GEMINI_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'APP_ENCRYPTION_KEY'] as const;
   const missing = required.filter((key) => !config[key]);
   if (missing.length) throw new Error(`Missing production configuration: ${missing.join(', ')}`);
 }
