@@ -2,7 +2,7 @@
 
 ## 1. Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - Gemini API key
 - Supabase project
 - Twilio account with WhatsApp Sandbox or an approved sender
