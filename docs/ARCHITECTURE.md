@@ -17,16 +17,20 @@ WhatsApp is the owner interface. Twilio verifies and forwards inbound messages t
 
 ## Agent responsibilities
 
+The canonical persona definitions live in `src/agents/registry.ts`. Every specialist reports to Diego, the Chief Intelligence Officer. Diego remains the single owner-facing coordinator: he routes work, preserves specialist attribution, resolves cross-functional conflicts, requests approval, and measures results. Personas define reasoning and communication behavior; adapters determine which external actions are actually available.
+
 | Agent | Responsibility | MVP status |
 |---|---|---|
-| Diego | Cross-functional intelligence and owner conversation | Implemented |
-| Marisol | Intake, missed calls, appointments | Signal contract |
-| Miguel | Campaign creation and marketing | Approval plan |
-| Zulma | Lead follow-up and conversion | Planned adapter |
-| Enrique | Capacity and operations | Planned adapter |
-| Lola | Cash flow and invoices | Planned adapter |
-| Julio | Local search visibility | Planned adapter |
-| Maria | Reviews and sentiment | Planned adapter |
+| Diego (CIO) | Cross-functional intelligence and owner conversation | Implemented |
+| Marisol | Intake, missed calls, appointments | Persona + signal contract |
+| Miguel | Campaign creation and marketing | Persona + approval plan |
+| Zulma | Lead follow-up and conversion | Persona; planned adapter |
+| Enrique | Capacity and operations | Persona; planned adapter |
+| Lola | Cash flow and invoices | Persona; planned adapter |
+| Julio | Local search visibility | Persona; planned adapter |
+| Maria | Reviews and sentiment | Persona; planned adapter |
+
+Each persona specifies its mission, personality, voice, expertise, responsibilities, inputs, outputs, tools, collaborators, escalation rules, guardrails, execution authority, and supported languages (English, Spanish, and Portuguese).
 
 ## Safety and privacy
 
