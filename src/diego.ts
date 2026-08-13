@@ -3,6 +3,8 @@ import { config } from './config.js';
 import { opportunitySchema, type BusinessBrain, type Opportunity } from './domain.js';
 import type { SupportedLanguage } from './language.js';
 import { buildTeamSystemPrompt, getAgent } from './agents/registry.js';
+import type { AgentId, AgentAssignment } from './agents/types.js';
+import { specialistResultSchema, workPlanSchema, type SpecialistResult, type TeamIntelligence, type WorkPlan } from './team-runtime.js';
 
 export interface IntelligenceEngine {
   respond(brain: BusinessBrain, message: string, language: SupportedLanguage): Promise<string>;
@@ -16,7 +18,7 @@ Voice: ${diego.voice.join('; ')}.
 Guardrails: ${diego.guardrails.join('; ')}.
 ${buildTeamSystemPrompt()}`;
 
-export class GeminiDiego implements IntelligenceEngine {
+export class GeminiDiego implements IntelligenceEngine, TeamIntelligence {
   private ai: GoogleGenAI;
   constructor(apiKey = config.GEMINI_API_KEY) {
     if (!apiKey) throw new Error('GEMINI_API_KEY is required');
@@ -34,4 +36,32 @@ export class GeminiDiego implements IntelligenceEngine {
     });
     return opportunitySchema.parse(JSON.parse(result.text ?? '{}'));
   }
+  async planTeam(brain: BusinessBrain, objective: string, language: SupportedLanguage): Promise<WorkPlan> {
+    const result = await this.ai.models.generateContent({
+      model: config.GEMINI_MODEL,
+      contents: `${guardrails}\nCreate the smallest effective multi-agent plan for the owner's objective. Use DIEGO only for synthesis, not as a specialist assignment. Consequential, reversible, or restricted work requires owner approval. Return JSON in ${languageName(language)}.\nBUSINESS BRAIN:${JSON.stringify(brain)}\nOBJECTIVE:${objective}`,
+      config: { responseMimeType: 'application/json', responseJsonSchema: workPlanSchema.toJSONSchema() }
+    });
+    return workPlanSchema.parse(JSON.parse(result.text ?? '{}'));
+  }
+  async runSpecialist(agentId: AgentId, brain: BusinessBrain, assignment: AgentAssignment, language: SupportedLanguage): Promise<SpecialistResult> {
+    const agent = getAgent(agentId);
+    const result = await this.ai.models.generateContent({
+      model: config.GEMINI_MODEL,
+      contents: `You are ${agent.name}, ${agent.title}. Mission: ${agent.mission}\nVoice:${agent.voice.join('; ')}\nResponsibilities:${agent.responsibilities.join('; ')}\nGuardrails:${agent.guardrails.join('; ')}\nAnalyze or draft only. Do not claim external execution. Respond in ${languageName(language)} as structured JSON.\nBUSINESS BRAIN:${JSON.stringify(brain)}\nASSIGNMENT:${JSON.stringify(assignment)}`,
+      config: { responseMimeType: 'application/json', responseJsonSchema: specialistResultSchema.toJSONSchema() }
+    });
+    return specialistResultSchema.parse(JSON.parse(result.text ?? '{}'));
+  }
+  async synthesizeTeam(brain: BusinessBrain, plan: WorkPlan, results: Array<{ agent: AgentId; result: SpecialistResult }>, language: SupportedLanguage): Promise<string> {
+    const result = await this.ai.models.generateContent({
+      model: config.GEMINI_MODEL,
+      contents: `${guardrails}\nSynthesize the specialist findings into one concise executive response. Attribute important findings, reconcile conflicts, state assumptions and confidence, and distinguish drafts from executed actions. Respond in ${languageName(language)}.\nBUSINESS BRAIN:${JSON.stringify(brain)}\nPLAN:${JSON.stringify(plan)}\nRESULTS:${JSON.stringify(results)}`
+    });
+    return result.text ?? 'The team completed its analysis, but I could not generate the final synthesis.';
+  }
+}
+
+function languageName(language: SupportedLanguage) {
+  return language === 'es' ? 'Spanish' : language === 'pt' ? 'Portuguese' : 'English';
 }

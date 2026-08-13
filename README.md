@@ -49,6 +49,7 @@ The local service listens on port `8080`. `GET /health` reports readiness. A com
 - `tests/` — business-flow and safety tests
 - `supabase/migrations/` — initial persistence and audit schema
 - `docs/ARCHITECTURE.md` — system boundaries, safety, and agent model
+- `docs/MULTI_AGENT_RUNTIME.md` — durable team lifecycle and WhatsApp commands
 - `docs/DEPLOYMENT.md` — production and Twilio setup
 - `docs/CLOUD_RUN.md` — Google Cloud bootstrap and automated deployment
 - `docs/PRODUCT.md` — scope, success metrics, pilot, and roadmap
