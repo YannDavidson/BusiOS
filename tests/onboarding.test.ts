@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { onboardingComplete, recordAnswer } from '../src/onboarding.js';
+import { onboardingComplete, question, recordAnswer } from '../src/onboarding.js';
 
 describe('onboarding', () => {
   it('records structured answers without mutating prior state', () => {
@@ -11,5 +11,10 @@ describe('onboarding', () => {
   it('completes only after ten answers', () => {
     expect(onboardingComplete(9)).toBe(false);
     expect(onboardingComplete(10)).toBe(true);
+  });
+  it('provides localized, open-ended brand questions', () => {
+    expect(question('en', 4)).toContain('a sentence');
+    expect(question('es', 4)).toContain('una frase');
+    expect(question('pt', 4)).toContain('uma frase');
   });
 });

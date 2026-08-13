@@ -21,11 +21,11 @@ export class SupabaseStore implements Store {
     const { data, error } = await this.client.from('conversation_states').select('*').eq('phone', phone).maybeSingle();
     if (error) throw error;
     if (!data) return null;
-    return { businessId: data.business_id, phone: data.phone, onboardingStep: data.onboarding_step, brain: data.brain, pendingOpportunity: data.pending_opportunity ?? undefined };
+    return { businessId: data.business_id, phone: data.phone, language: data.language ?? 'en', onboardingStep: data.onboarding_step, brain: data.brain, pendingOpportunity: data.pending_opportunity ?? undefined };
   }
   async put(state: ConversationState) {
     const { error } = await this.client.from('conversation_states').upsert({
-      business_id: state.businessId, phone: state.phone, onboarding_step: state.onboardingStep,
+      business_id: state.businessId, phone: state.phone, language: state.language, onboarding_step: state.onboardingStep,
       brain: state.brain, pending_opportunity: state.pendingOpportunity ?? null, updated_at: new Date().toISOString()
     }, { onConflict: 'phone' });
     if (error) throw error;

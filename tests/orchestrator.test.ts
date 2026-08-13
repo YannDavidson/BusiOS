@@ -27,4 +27,22 @@ describe('Orchestrator', () => {
     expect(card).toContain('Reply *APPROVE*');
     expect((await store.get('whatsapp:+2'))?.pendingOpportunity).toBeDefined();
   });
+  it('does not consume conversational interruptions as onboarding answers', async () => {
+    const store = new MemoryStore();
+    const orchestrator = new Orchestrator(store, diego);
+    await orchestrator.handle('whatsapp:+3', 'Hola');
+    const reply = await orchestrator.handle('whatsapp:+3', '¿Estás ahí?');
+    expect(reply).toContain('Aquí estoy');
+    expect(reply).toContain('1/10');
+    expect((await store.get('whatsapp:+3'))?.onboardingStep).toBe(0);
+  });
+  it('accepts detailed brand descriptions and advances normally', async () => {
+    const store = new MemoryStore();
+    const orchestrator = new Orchestrator(store, diego);
+    await orchestrator.handle('whatsapp:+4', 'Hello');
+    for (let i = 0; i < 4; i++) await orchestrator.handle('whatsapp:+4', `answer ${i}`);
+    const reply = await orchestrator.handle('whatsapp:+4', 'Professional, deeply personal care, friendly service, and a welcoming neighborhood experience.');
+    expect(reply).toContain('6/10');
+    expect((await store.get('whatsapp:+4'))?.brain.brandVibe).toContain('welcoming neighborhood');
+  });
 });

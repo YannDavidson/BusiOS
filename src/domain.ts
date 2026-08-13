@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { SupportedLanguage } from './language.js';
 
 export const onboardingFields = [
   'identity', 'offers', 'capacity', 'bottleneck', 'brandVibe',
@@ -27,6 +28,7 @@ export type Opportunity = z.infer<typeof opportunitySchema>;
 export interface ConversationState {
   businessId: string;
   phone: string;
+  language: SupportedLanguage;
   onboardingStep: number;
   brain: BusinessBrain;
   pendingOpportunity?: Opportunity;
