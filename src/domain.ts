@@ -33,4 +33,5 @@ export interface ConversationState {
   onboardingStep: number;
   brain: BusinessBrain;
   pendingOpportunity?: Opportunity;
+  pendingRunId?: string;
 }
