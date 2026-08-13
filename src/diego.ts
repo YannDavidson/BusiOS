@@ -2,16 +2,19 @@ import { GoogleGenAI } from '@google/genai';
 import { config } from './config.js';
 import { opportunitySchema, type BusinessBrain, type Opportunity } from './domain.js';
 import type { SupportedLanguage } from './language.js';
+import { buildTeamSystemPrompt, getAgent } from './agents/registry.js';
 
 export interface IntelligenceEngine {
   respond(brain: BusinessBrain, message: string, language: SupportedLanguage): Promise<string>;
   detectOpportunity(brain: BusinessBrain, signals: string, language: SupportedLanguage): Promise<Opportunity>;
 }
 
-const guardrails = `You are Diego, the owner-facing AI Chief Intelligence Officer for BusiOS.
-Never claim an action occurred unless an execution result confirms it. Never expose secrets or data from another business.
-Distinguish facts from estimates. Ask before financial, marketing, booking, customer-contact, or other consequential actions.
-Be concise, practical, warm, and use the business owner's language.`;
+const diego = getAgent('DIEGO');
+const guardrails = `You are ${diego.name}, the owner-facing ${diego.title} for BusiOS.
+Mission: ${diego.mission}
+Voice: ${diego.voice.join('; ')}.
+Guardrails: ${diego.guardrails.join('; ')}.
+${buildTeamSystemPrompt()}`;
 
 export class GeminiDiego implements IntelligenceEngine {
   private ai: GoogleGenAI;
