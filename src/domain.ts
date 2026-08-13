@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { SupportedLanguage } from './language.js';
+import { agentIds } from './agents/types.js';
 
 export const onboardingFields = [
   'identity', 'offers', 'capacity', 'bottleneck', 'brandVibe',
@@ -17,8 +18,8 @@ export const opportunitySchema = z.object({
   confidence_score: z.number().min(0).max(1),
   evidence: z.array(z.object({ source: z.string(), signal: z.string() })).min(1),
   execution_payload: z.object({
-    target_agents: z.array(z.enum(['MARISOL', 'MIGUEL', 'ZULMA', 'ENRIQUE', 'LOLA', 'JULIO', 'MARIA', 'DIEGO'])),
-    action_plan: z.array(z.object({ agent: z.string(), action: z.string() })),
+    target_agents: z.array(z.enum(agentIds)),
+    action_plan: z.array(z.object({ agent: z.enum(agentIds), action: z.string() })),
     requires_owner_approval: z.literal(true)
   })
 });
