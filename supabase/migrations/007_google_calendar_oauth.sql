@@ -34,3 +34,9 @@ begin
   return deleted_count;
 end;
 $$;
+
+revoke all on function purge_expired_oauth_authorization_states()
+  from public, anon, authenticated;
+
+grant execute on function purge_expired_oauth_authorization_states()
+  to service_role;
