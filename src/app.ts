@@ -6,8 +6,9 @@ import { config } from './config.js';
 import type { Orchestrator } from './orchestrator.js';
 import type { MarisolVoiceService } from './voice/marisol.js';
 import type { CallStatus } from './voice/types.js';
+import type { VerifiedActionService } from './actions/service.js';
 
-export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService) {
+export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService, actions?: VerifiedActionService) {
   const app = express();
   app.set('trust proxy', 1);
   app.use(helmet());
@@ -65,6 +66,18 @@ export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceServic
     if (!validTwilioRequest(req)) { res.status(403).send('Invalid Twilio signature'); return; }
     try { await voice.status(String(req.body.CallSid ?? ''), String(req.body.CallStatus ?? '') as CallStatus); res.sendStatus(204); }
     catch (error) { req.log.error({ err: error }, 'voice status failed'); res.status(500).send('Unable to update call'); }
+  });
+  app.post('/webhooks/twilio/actions/message-status', voiceParser, async (req, res) => {
+    if (!actions) { res.status(503).send('Actions unavailable'); return; }
+    if (!validTwilioRequest(req)) { res.status(403).send('Invalid Twilio signature'); return; }
+    try { await actions.providerStatus(String(req.body.MessageSid ?? ''), String(req.body.MessageStatus ?? ''), { errorCode: req.body.ErrorCode || null, segments: Number(req.body.NumSegments ?? 0) }); res.sendStatus(204); }
+    catch (error) { req.log.error({ err: error }, 'message receipt failed'); res.status(500).send('Unable to update receipt'); }
+  });
+  app.post('/webhooks/twilio/actions/call-status', voiceParser, async (req, res) => {
+    if (!actions) { res.status(503).send('Actions unavailable'); return; }
+    if (!validTwilioRequest(req)) { res.status(403).send('Invalid Twilio signature'); return; }
+    try { await actions.providerStatus(String(req.body.CallSid ?? ''), String(req.body.CallStatus ?? ''), { answeredBy: req.body.AnsweredBy || null, durationSeconds: Number(req.body.CallDuration ?? 0) }); res.sendStatus(204); }
+    catch (error) { req.log.error({ err: error }, 'call receipt failed'); res.status(500).send('Unable to update receipt'); }
   });
   return app;
 }
