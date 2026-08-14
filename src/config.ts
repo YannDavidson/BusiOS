@@ -6,6 +6,7 @@ const schema = z.object({
   PUBLIC_BASE_URL: z.string().url().optional(),
   GEMINI_API_KEY: z.string().min(1).optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  GEMINI_LIVE_MODEL: z.string().default('gemini-3.1-flash-live-preview'),
   TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
   TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
   TWILIO_WHATSAPP_NUMBER: z.string().default('whatsapp:+14155238886'),

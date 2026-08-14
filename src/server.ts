@@ -6,9 +6,15 @@ import { Orchestrator } from './orchestrator.js';
 import { createStore } from './store.js';
 import { MarisolVoiceService } from './voice/marisol.js';
 import { createVoiceStore } from './voice/store.js';
+import { GeminiLiveConnector } from './voice/gemini-live.js';
+import { RealtimeVoiceBridge } from './voice/realtime-bridge.js';
 
 assertProductionConfig();
 const store = createStore();
 const diego = new GeminiDiego();
-const app = createApp(new Orchestrator(store, diego, new MultiAgentRuntime(store, diego)), new MarisolVoiceService(createVoiceStore(), diego));
-app.listen(config.PORT, () => console.log(`BusiOS listening on :${config.PORT}`));
+const voiceStore = createVoiceStore();
+const app = createApp(new Orchestrator(store, diego, new MultiAgentRuntime(store, diego)), new MarisolVoiceService(voiceStore, diego));
+const server = createServer(app);
+new RealtimeVoiceBridge(voiceStore, new GeminiLiveConnector()).attach(server);
+server.listen(config.PORT, () => console.log(`BusiOS listening on :${config.PORT}`));
+import { createServer } from 'node:http';

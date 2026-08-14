@@ -37,7 +37,12 @@ export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceServic
     try {
       const { number, greeting } = await voice.answer(callSid, from, to);
       const response = new twilio.twiml.VoiceResponse();
-      addGather(response, greeting, number.language);
+      if (number.realtimeEnabled && config.PUBLIC_BASE_URL) {
+        const connect = response.connect();
+        const stream = connect.stream({ url: `${config.PUBLIC_BASE_URL.replace(/^http/, 'ws').replace(/\/$/, '')}/webhooks/twilio/voice/stream` });
+        stream.parameter({ name: 'to', value: to });
+        stream.parameter({ name: 'businessId', value: number.businessId });
+      } else addGather(response, greeting, number.language);
       res.type('text/xml').send(response.toString());
     } catch (error) { req.log.error({ err: error }, 'voice answer failed'); const response = new twilio.twiml.VoiceResponse(); response.say('This number is not configured. Please try again later.'); response.hangup(); res.type('text/xml').send(response.toString()); }
   });
