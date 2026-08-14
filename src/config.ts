@@ -7,6 +7,8 @@ const schema = z.object({
   GEMINI_API_KEY: z.string().min(1).optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
   GEMINI_LIVE_MODEL: z.string().default('gemini-3.1-flash-live-preview'),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
   TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
   TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
   TWILIO_WHATSAPP_NUMBER: z.string().default('whatsapp:+14155238886'),
