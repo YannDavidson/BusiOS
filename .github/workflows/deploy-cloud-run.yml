@@ -61,7 +61,7 @@ jobs:
             --concurrency=40
             --timeout=900
             --set-env-vars=NODE_ENV=production,PUBLIC_BASE_URL=https://busios-ai-w2pzlhwnxa-uc.a.run.app,GEMINI_MODEL=gemini-2.5-flash,GEMINI_LIVE_MODEL=gemini-3.1-flash-live-preview
-            --set-secrets=GEMINI_API_KEY=busios-gemini-api-key:latest,TWILIO_ACCOUNT_SID=busios-twilio-account-sid:latest,TWILIO_AUTH_TOKEN=busios-twilio-auth-token:latest,SUPABASE_URL=busios-supabase-url:latest,SUPABASE_SERVICE_ROLE_KEY=busios-supabase-service-role-key:latest,APP_ENCRYPTION_KEY=busios-app-encryption-key:latest
+            --set-secrets=GEMINI_API_KEY=busios-gemini-api-key:latest,TWILIO_ACCOUNT_SID=busios-twilio-account-sid:latest,TWILIO_AUTH_TOKEN=busios-twilio-auth-token:latest,SUPABASE_URL=busios-supabase-url:latest,SUPABASE_SERVICE_ROLE_KEY=busios-supabase-service-role-key:latest,APP_ENCRYPTION_KEY=busios-app-encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=busios-google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=busios-google-oauth-client-secret:latest
 
       - name: Verify health endpoint
         run: curl --fail --retry 8 --retry-delay 5 "${{ steps.deploy.outputs.url }}/health"

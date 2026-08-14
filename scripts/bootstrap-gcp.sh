@@ -42,7 +42,7 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
   --role=roles/iam.workloadIdentityUser \
   --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${GITHUB_REPOSITORY}"
 
-for secret in busios-gemini-api-key busios-twilio-account-sid busios-twilio-auth-token busios-supabase-url busios-supabase-service-role-key busios-app-encryption-key; do
+for secret in busios-gemini-api-key busios-twilio-account-sid busios-twilio-auth-token busios-supabase-url busios-supabase-service-role-key busios-app-encryption-key busios-google-oauth-client-id busios-google-oauth-client-secret; do
   gcloud secrets describe "$secret" >/dev/null 2>&1 || gcloud secrets create "$secret" --replication-policy=automatic
 done
 

@@ -7,13 +7,41 @@ import type { Orchestrator } from './orchestrator.js';
 import type { MarisolVoiceService } from './voice/marisol.js';
 import type { CallStatus } from './voice/types.js';
 import type { VerifiedActionService } from './actions/service.js';
+import type { GoogleCalendarOAuthService } from './integrations/google-calendar.js';
 
-export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService, actions?: VerifiedActionService) {
+export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService, actions?: VerifiedActionService, googleCalendar?: GoogleCalendarOAuthService) {
   const app = express();
   app.set('trust proxy', 1);
   app.use(helmet());
   app.use(pinoHttp({ redact: ['req.headers.authorization', 'req.body.From', 'req.body.To'] }));
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'busios-ai' }));
+  const json = express.json({ limit: '16kb' });
+  app.get('/integrations/google/calendar/connect', async (req, res) => {
+    if (!googleCalendar) { res.status(503).json({ error: 'Google Calendar integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req); const userId = await googleCalendar.authorizeUser(bearer(req), businessId); res.json({ authorizationUrl: await googleCalendar.connect(businessId, userId), expiresInSeconds: 600 }); }
+    catch (error) { integrationError(res, error); }
+  });
+  app.get('/integrations/google/calendar/callback', async (req, res) => {
+    if (!googleCalendar) { res.status(503).send('Google Calendar integration unavailable'); return; }
+    if (req.query.error) { res.status(400).send('Google Calendar authorization was not granted. You may close this window.'); return; }
+    try { const result = await googleCalendar.callback(String(req.query.state ?? ''), String(req.query.code ?? '')); res.status(200).type('html').send(`<!doctype html><title>BusiOS Calendar connected</title><main><h1>Google Calendar connected</h1><p>${escapeHtml(result.selectedCalendar.summary)} is ready for BusiOS. You may close this window.</p></main>`); }
+    catch (error) { req.log.error({ err: error }, 'google oauth callback failed'); res.status(400).send('Google Calendar connection failed or expired. Start the connection again.'); }
+  });
+  app.get('/integrations/google/calendar/status', async (req, res) => {
+    if (!googleCalendar) { res.status(503).json({ error: 'Google Calendar integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req); await googleCalendar.authorizeUser(bearer(req), businessId); res.json(await googleCalendar.status(businessId)); }
+    catch (error) { integrationError(res, error); }
+  });
+  app.post('/integrations/google/calendar/select', json, async (req, res) => {
+    if (!googleCalendar) { res.status(503).json({ error: 'Google Calendar integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req); await googleCalendar.authorizeUser(bearer(req), businessId); const calendarId = String(req.body?.calendarId ?? '').trim(); if (!calendarId) { res.status(400).json({ error: 'calendarId is required' }); return; } res.json(await googleCalendar.selectCalendar(businessId, calendarId)); }
+    catch (error) { integrationError(res, error); }
+  });
+  app.delete('/integrations/google/calendar', async (req, res) => {
+    if (!googleCalendar) { res.status(503).json({ error: 'Google Calendar integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req); await googleCalendar.authorizeUser(bearer(req), businessId); res.json(await googleCalendar.disconnect(businessId)); }
+    catch (error) { integrationError(res, error); }
+  });
   app.post('/webhooks/twilio/whatsapp', express.urlencoded({ extended: false }), async (req, res) => {
     if (!validTwilioRequest(req)) { res.status(403).send('Invalid Twilio signature'); return; }
     const from = String(req.body.From ?? '');
@@ -81,6 +109,11 @@ export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceServic
   });
   return app;
 }
+
+function bearer(req: express.Request) { const value = req.header('authorization') ?? ''; if (!value.startsWith('Bearer ') || value.length < 20) throw new Error('BusiOS authentication required'); return value.slice(7); }
+function requiredBusinessId(req: express.Request) { const value = String(req.query.businessId ?? req.header('x-busios-business-id') ?? '').trim(); if (!/^[0-9a-f-]{36}$/i.test(value)) throw new Error('Valid businessId is required'); return value; }
+function integrationError(res: express.Response, error: unknown) { const message = error instanceof Error ? error.message : 'Integration request failed'; const forbidden = /authentication|required|access/i.test(message); res.status(forbidden ? 403 : 400).json({ error: message }); }
+function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char); }
 
 function validTwilioRequest(req: express.Request) {
   if (config.NODE_ENV === 'test') return true;

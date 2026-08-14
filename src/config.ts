@@ -25,3 +25,9 @@ export function assertProductionConfig() {
   const missing = required.filter((key) => !config[key]);
   if (missing.length) throw new Error(`Missing production configuration: ${missing.join(', ')}`);
 }
+
+export function assertGoogleOAuthConfig() {
+  const required = ['PUBLIC_BASE_URL', 'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'APP_ENCRYPTION_KEY'] as const;
+  const missing = required.filter((key) => !config[key]);
+  if (missing.length) throw new Error(`Google Calendar OAuth is not configured: ${missing.join(', ')}`);
+}
