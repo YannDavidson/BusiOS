@@ -5,6 +5,8 @@ import type { SupportedLanguage } from './language.js';
 import { buildTeamSystemPrompt, getAgent } from './agents/registry.js';
 import type { AgentId, AgentAssignment } from './agents/types.js';
 import { specialistResultSchema, workPlanSchema, type SpecialistResult, type TeamIntelligence, type WorkPlan } from './team-runtime.js';
+import type { CallSession, CallSummary } from './voice/types.js';
+import type { VoiceSummaryIntelligence } from './voice/marisol.js';
 
 export interface IntelligenceEngine {
   respond(brain: BusinessBrain, message: string, language: SupportedLanguage): Promise<string>;
@@ -18,7 +20,7 @@ Voice: ${diego.voice.join('; ')}.
 Guardrails: ${diego.guardrails.join('; ')}.
 ${buildTeamSystemPrompt()}`;
 
-export class GeminiDiego implements IntelligenceEngine, TeamIntelligence {
+export class GeminiDiego implements IntelligenceEngine, TeamIntelligence, VoiceSummaryIntelligence {
   private ai: GoogleGenAI;
   constructor(apiKey = config.GEMINI_API_KEY) {
     if (!apiKey) throw new Error('GEMINI_API_KEY is required');
@@ -59,6 +61,17 @@ export class GeminiDiego implements IntelligenceEngine, TeamIntelligence {
       contents: `${guardrails}\nSynthesize the specialist findings into one concise executive response. Attribute important findings, reconcile conflicts, state assumptions and confidence, and distinguish drafts from executed actions. Respond in ${languageName(language)}.\nBUSINESS BRAIN:${JSON.stringify(brain)}\nPLAN:${JSON.stringify(plan)}\nRESULTS:${JSON.stringify(results)}`
     });
     return result.text ?? 'The team completed its analysis, but I could not generate the final synthesis.';
+  }
+  async summarizeCall(session: CallSession): Promise<CallSummary> {
+    const schema = {
+      type: 'object', properties: {
+        summary: { type: 'string' }, intent: { type: 'string' },
+        customerNeeds: { type: 'array', items: { type: 'string' } },
+        followUp: { type: 'array', items: { type: 'string' } }
+      }, required: ['summary', 'intent', 'customerNeeds', 'followUp'], additionalProperties: false
+    } as const;
+    const result = await this.ai.models.generateContent({ model: config.GEMINI_MODEL, contents: `${guardrails}\nSummarize this Marisol phone call for the Business Brain. Do not invent facts. Return structured JSON in ${languageName(session.language)}.\nCALL:${JSON.stringify(session)}`, config: { responseMimeType: 'application/json', responseJsonSchema: schema } });
+    return JSON.parse(result.text ?? '{}') as CallSummary;
   }
 }
 
