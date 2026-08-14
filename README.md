@@ -53,6 +53,7 @@ The local service listens on port `8080`. `GET /health` reports readiness. A com
 - `docs/MARISOL_VOICE.md` — tenant voice provisioning, Twilio webhooks, and call lifecycle
 - `docs/REALTIME_VOICE.md` — bidirectional audio, interruption, recovery, and usage limits
 - `docs/VERIFIED_PHONE_ACTIONS.md` — consent, approvals, connectors, receipts, usage, and billing
+- `docs/GOOGLE_CALENDAR_OAUTH.md` — tenant-authorized Calendar OAuth, selection, and revocation
 - `docs/DEPLOYMENT.md` — production and Twilio setup
 - `docs/CLOUD_RUN.md` — Google Cloud bootstrap and automated deployment
 - `docs/PRODUCT.md` — scope, success metrics, pilot, and roadmap
