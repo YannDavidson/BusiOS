@@ -8,6 +8,8 @@ export interface ActionStore {
   addReceipt(receipt: ExecutionReceipt): Promise<void>; getReceiptByAction(actionId: string): Promise<ExecutionReceipt | null>; findReceiptByProviderId(providerId: string): Promise<ExecutionReceipt | null>; updateReceipt(id: string, status: ExecutionReceipt['status'], verified: boolean, details: Record<string, unknown>): Promise<void>;
   addUsage(events: UsageEvent[]): Promise<void>; upsertCrmContact(businessId: string, externalKey: string, data: Record<string, unknown>): Promise<string>;
   getIntegration(businessId: string, provider: string): Promise<Record<string, unknown> | null>;
+  saveIntegration(businessId: string, provider: string, config: Record<string, unknown>, credentialsCiphertext: string): Promise<void>;
+  disableIntegration(businessId: string, provider: string): Promise<void>;
 }
 
 export class MemoryActionStore implements ActionStore {
@@ -26,6 +28,8 @@ export class MemoryActionStore implements ActionStore {
   async addUsage(events: UsageEvent[]) { this.usage.push(...structuredClone(events)); }
   async upsertCrmContact(businessId: string, externalKey: string, data: Record<string, unknown>) { const id = `${businessId}:${externalKey}`; this.contacts.set(id, structuredClone(data)); return id; }
   async getIntegration(businessId: string, provider: string) { return structuredClone(this.integrations.get(`${businessId}:${provider}`) ?? null); }
+  async saveIntegration(businessId: string, provider: string, integrationConfig: Record<string, unknown>, credentialsCiphertext: string) { this.integrations.set(`${businessId}:${provider}`, { ...structuredClone(integrationConfig), credentialsCiphertext, status: 'active' }); }
+  async disableIntegration(businessId: string, provider: string) { this.integrations.delete(`${businessId}:${provider}`); }
 }
 
 export class SupabaseActionStore implements ActionStore {
@@ -44,6 +48,8 @@ export class SupabaseActionStore implements ActionStore {
   async addUsage(events: UsageEvent[]) { if (!events.length) return; const { error } = await this.client.from('usage_events').insert(events.map((e) => ({ business_id: e.businessId, action_id: e.actionId, metric: e.metric, quantity: e.quantity, estimated_cost_micros: e.estimatedCostMicros, occurred_at: e.occurredAt }))); if (error) throw error; }
   async upsertCrmContact(b: string, key: string, data: Record<string, unknown>) { const { data: row, error } = await this.client.from('crm_contacts').upsert({ business_id: b, external_key: key, data, updated_at: new Date().toISOString() }, { onConflict: 'business_id,external_key' }).select('id').single(); if (error) throw error; return row.id; }
   async getIntegration(b: string, p: string) { const { data, error } = await this.client.from('integration_connections').select('config, credentials_ciphertext').eq('business_id', b).eq('provider', p).eq('status', 'active').maybeSingle(); if (error) throw error; return data ? { ...(data.config ?? {}), credentialsCiphertext: data.credentials_ciphertext } : null; }
+  async saveIntegration(b: string, p: string, integrationConfig: Record<string, unknown>, credentialsCiphertext: string) { const { error } = await this.client.from('integration_connections').upsert({ business_id: b, provider: p, status: 'active', config: integrationConfig, credentials_ciphertext: credentialsCiphertext, updated_at: new Date().toISOString() }, { onConflict: 'business_id,provider' }); if (error) throw error; }
+  async disableIntegration(b: string, p: string) { const { error } = await this.client.from('integration_connections').update({ status: 'disabled', config: {}, credentials_ciphertext: null, updated_at: new Date().toISOString() }).eq('business_id', b).eq('provider', p); if (error) throw error; }
 }
 
 export function createActionStore(): ActionStore { if (config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY) return new SupabaseActionStore(createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })); if (config.NODE_ENV === 'production') throw new Error('Persistent action store required'); return new MemoryActionStore(); }
