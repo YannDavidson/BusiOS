@@ -8,14 +8,41 @@ import type { MarisolVoiceService } from './voice/marisol.js';
 import type { CallStatus } from './voice/types.js';
 import type { VerifiedActionService } from './actions/service.js';
 import type { GoogleCalendarOAuthService } from './integrations/google-calendar.js';
+import type { OwnerPortalService } from './portal/service.js';
 
-export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService, actions?: VerifiedActionService, googleCalendar?: GoogleCalendarOAuthService) {
+export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService, actions?: VerifiedActionService, googleCalendar?: GoogleCalendarOAuthService, portal?: OwnerPortalService) {
   const app = express();
   app.set('trust proxy', 1);
   app.use(helmet());
   app.use(pinoHttp({ redact: ['req.headers.authorization', 'req.body.From', 'req.body.To'] }));
+  if (config.PORTAL_ENABLED) app.use('/portal', express.static('public', { index: 'index.html', fallthrough: false }));
+  app.get('/', (_req, res) => res.redirect('/portal'));
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'busios-ai' }));
   const json = express.json({ limit: '16kb' });
+  app.post('/api/portal/auth/magic-link', json, async (req, res) => {
+    if (!portal) { res.status(503).json({ error: 'Owner portal unavailable' }); return; }
+    try { await portal.requestMagicLink(String(req.body?.email ?? '')); res.status(202).json({ sent: true }); } catch (error) { portalError(res, error); }
+  });
+  app.get('/api/portal/businesses', async (req, res) => {
+    if (!portal) { res.status(503).json({ error: 'Owner portal unavailable' }); return; }
+    try { res.json({ businesses: await portal.list(bearer(req)) }); } catch (error) { portalError(res, error); }
+  });
+  app.post('/api/portal/businesses', json, async (req, res) => {
+    if (!portal) { res.status(503).json({ error: 'Owner portal unavailable' }); return; }
+    try { res.status(201).json(await portal.create(bearer(req), String(req.body?.name ?? ''))); } catch (error) { portalError(res, error); }
+  });
+  app.get('/api/portal/businesses/:businessId/dashboard', async (req, res) => {
+    if (!portal) { res.status(503).json({ error: 'Owner portal unavailable' }); return; }
+    try { res.json(await portal.dashboard(bearer(req), req.params.businessId)); } catch (error) { portalError(res, error); }
+  });
+  app.put('/api/portal/businesses/:businessId/voice', json, async (req, res) => {
+    if (!portal) { res.status(503).json({ error: 'Owner portal unavailable' }); return; }
+    try { await portal.saveVoice(bearer(req), req.params.businessId, req.body ?? {}); res.json({ saved: true }); } catch (error) { portalError(res, error); }
+  });
+  app.put('/api/portal/businesses/:businessId/agents', json, async (req, res) => {
+    if (!portal) { res.status(503).json({ error: 'Owner portal unavailable' }); return; }
+    try { await portal.saveAgents(bearer(req), req.params.businessId, req.body ?? {}); res.json({ saved: true }); } catch (error) { portalError(res, error); }
+  });
   app.get('/integrations/google/calendar/connect', async (req, res) => {
     if (!googleCalendar) { res.status(503).json({ error: 'Google Calendar integration unavailable' }); return; }
     try { const businessId = requiredBusinessId(req); const userId = await googleCalendar.authorizeUser(bearer(req), businessId); res.json({ authorizationUrl: await googleCalendar.connect(businessId, userId), expiresInSeconds: 600 }); }
@@ -113,6 +140,7 @@ export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceServic
 function bearer(req: express.Request) { const value = req.header('authorization') ?? ''; if (!value.startsWith('Bearer ') || value.length < 20) throw new Error('BusiOS authentication required'); return value.slice(7); }
 function requiredBusinessId(req: express.Request) { const value = String(req.query.businessId ?? req.header('x-busios-business-id') ?? '').trim(); if (!/^[0-9a-f-]{36}$/i.test(value)) throw new Error('Valid businessId is required'); return value; }
 function integrationError(res: express.Response, error: unknown) { const message = error instanceof Error ? error.message : 'Integration request failed'; const forbidden = /authentication|required|access/i.test(message); res.status(forbidden ? 403 : 400).json({ error: message }); }
+function portalError(res: express.Response, error: unknown) { const message = error instanceof Error ? error.message : 'Portal request failed'; const forbidden = /session|access|required/i.test(message); res.status(forbidden ? 403 : 400).json({ error: message }); }
 function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char); }
 
 function validTwilioRequest(req: express.Request) {
