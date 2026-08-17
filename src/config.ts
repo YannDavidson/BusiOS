@@ -14,6 +14,7 @@ const schema = z.object({
   TWILIO_WHATSAPP_NUMBER: z.string().default('whatsapp:+14155238886'),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  PORTAL_ENABLED: z.string().default('true').transform((value) => value === 'true'),
   APP_ENCRYPTION_KEY: z.string().min(32).optional()
 });
 
