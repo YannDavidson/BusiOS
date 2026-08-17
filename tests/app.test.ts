@@ -28,6 +28,7 @@ describe('HTTP app', () => {
     if (!address || typeof address === 'string') throw new Error('Expected TCP server');
     const response = await fetch(`http://127.0.0.1:${address.port}/portal/`); const html = await response.text();
     expect(response.status).toBe(200); expect(html).toContain('BusiOS Owner Portal'); expect(html).toContain('/portal/app.js');
+    const pricing = await fetch(`http://127.0.0.1:${address.port}/portal/pricing.html`); expect(await pricing.text()).toContain('$299');
     server.close();
   });
   it('answers a tenant-routed Twilio voice webhook with TwiML speech gathering', async () => {

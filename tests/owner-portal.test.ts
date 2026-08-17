@@ -25,4 +25,9 @@ describe('owner portal', () => {
     await expect(service.saveVoice('owner-token-that-is-long-enough', business.id, { businessName: 'Valid', language: 'fr', greeting: 'Bonjour' })).rejects.toThrow('Unsupported language');
     await expect(service.saveAgents('owner-token-that-is-long-enough', business.id, { enabled: ['MARISOL'] })).rejects.toThrow('include Diego');
   });
+  it('enforces the subscription agent allowance on the server', async () => {
+    const { store, service } = setup(); const business = await service.create('owner-token-that-is-long-enough', 'Limited Business'); store.limits.set(business.id, 2);
+    await expect(service.saveAgents('owner-token-that-is-long-enough', business.id, { enabled: ['DIEGO', 'MARISOL', 'MIGUEL'] })).rejects.toThrow('includes 2 agents');
+    await service.saveAgents('owner-token-that-is-long-enough', business.id, { enabled: ['DIEGO', 'MARISOL'] });
+  });
 });

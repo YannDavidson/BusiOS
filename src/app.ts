@@ -9,8 +9,9 @@ import type { CallStatus } from './voice/types.js';
 import type { VerifiedActionService } from './actions/service.js';
 import type { GoogleCalendarOAuthService } from './integrations/google-calendar.js';
 import type { OwnerPortalService } from './portal/service.js';
+import type { PaidPlan, StripeBillingService } from './billing/stripe.js';
 
-export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService, actions?: VerifiedActionService, googleCalendar?: GoogleCalendarOAuthService, portal?: OwnerPortalService) {
+export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService, actions?: VerifiedActionService, googleCalendar?: GoogleCalendarOAuthService, portal?: OwnerPortalService, billing?: StripeBillingService) {
   const app = express();
   app.set('trust proxy', 1);
   app.use(helmet());
@@ -19,6 +20,11 @@ export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceServic
   app.get('/', (_req, res) => res.redirect('/portal'));
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'busios-ai' }));
   const json = express.json({ limit: '16kb' });
+  app.post('/webhooks/stripe', express.raw({ type: 'application/json', limit: '256kb' }), async (req, res) => {
+    if (!billing) { res.status(503).send('Stripe billing unavailable'); return; }
+    try { await billing.webhook(req.body as Buffer, req.header('stripe-signature') ?? ''); res.json({ received: true }); }
+    catch (error) { req.log.error({ err: error }, 'stripe webhook failed'); res.status(400).send('Invalid Stripe webhook'); }
+  });
   app.post('/api/portal/auth/magic-link', json, async (req, res) => {
     if (!portal) { res.status(503).json({ error: 'Owner portal unavailable' }); return; }
     try { await portal.requestMagicLink(String(req.body?.email ?? '')); res.status(202).json({ sent: true }); } catch (error) { portalError(res, error); }
@@ -42,6 +48,16 @@ export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceServic
   app.put('/api/portal/businesses/:businessId/agents', json, async (req, res) => {
     if (!portal) { res.status(503).json({ error: 'Owner portal unavailable' }); return; }
     try { await portal.saveAgents(bearer(req), req.params.businessId, req.body ?? {}); res.json({ saved: true }); } catch (error) { portalError(res, error); }
+  });
+  app.post('/api/portal/businesses/:businessId/billing/checkout', json, async (req, res) => {
+    if (!portal || !billing) { res.status(503).json({ error: 'Stripe billing unavailable' }); return; }
+    try { const user = await portal.authorizeOwner(bearer(req), req.params.businessId); const plan = String(req.body?.plan ?? '') as PaidPlan; if (!['basic', 'growth', 'business'].includes(plan)) { res.status(400).json({ error: 'Valid plan is required' }); return; } if (!user.email) throw new Error('Owner email is required'); res.json(await billing.checkout(req.params.businessId, user.email, plan)); }
+    catch (error) { portalError(res, error); }
+  });
+  app.post('/api/portal/businesses/:businessId/billing/portal', async (req, res) => {
+    if (!portal || !billing) { res.status(503).json({ error: 'Stripe billing unavailable' }); return; }
+    try { await portal.authorizeOwner(bearer(req), req.params.businessId); res.json(await billing.portal(req.params.businessId)); }
+    catch (error) { portalError(res, error); }
   });
   app.get('/integrations/google/calendar/connect', async (req, res) => {
     if (!googleCalendar) { res.status(503).json({ error: 'Google Calendar integration unavailable' }); return; }

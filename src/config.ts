@@ -15,6 +15,11 @@ const schema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   PORTAL_ENABLED: z.string().default('true').transform((value) => value === 'true'),
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  STRIPE_PRICE_BASIC_ID: z.string().min(1).optional(),
+  STRIPE_PRICE_GROWTH_ID: z.string().min(1).optional(),
+  STRIPE_PRICE_BUSINESS_ID: z.string().min(1).optional(),
   APP_ENCRYPTION_KEY: z.string().min(32).optional()
 });
 
