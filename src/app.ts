@@ -10,12 +10,14 @@ import type { VerifiedActionService } from './actions/service.js';
 import type { GoogleCalendarOAuthService } from './integrations/google-calendar.js';
 import type { OwnerPortalService } from './portal/service.js';
 import type { PaidPlan, StripeBillingService } from './billing/stripe.js';
+import type { LiveKnowledgeDriveService } from './knowledge/google-drive.js';
+import { agentIds, type AgentId } from './agents/types.js';
 
-export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService, actions?: VerifiedActionService, googleCalendar?: GoogleCalendarOAuthService, portal?: OwnerPortalService, billing?: StripeBillingService) {
+export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceService, actions?: VerifiedActionService, googleCalendar?: GoogleCalendarOAuthService, portal?: OwnerPortalService, billing?: StripeBillingService, knowledge?: LiveKnowledgeDriveService) {
   const app = express();
   app.set('trust proxy', 1);
-  app.use(helmet());
-  app.use(pinoHttp({ redact: ['req.headers.authorization', 'req.body.From', 'req.body.To'] }));
+  app.use(helmet({ contentSecurityPolicy: { directives: { scriptSrc: ["'self'", 'https://apis.google.com'], frameSrc: ["'self'", 'https://docs.google.com', 'https://accounts.google.com'], connectSrc: ["'self'", 'https://www.googleapis.com'] } } }));
+  app.use(pinoHttp({ redact: ['req.headers.authorization', 'req.headers.x-goog-channel-token', 'req.headers.x-busios-sync-secret', 'req.body.From', 'req.body.To'] }));
   if (config.PORTAL_ENABLED) app.use('/portal', express.static('public', { index: 'index.html', fallthrough: false }));
   app.get('/', (_req, res) => res.redirect('/portal'));
   app.get('/health', (_req, res) => res.json({ ok: true, service: 'busios-ai' }));
@@ -24,6 +26,15 @@ export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceServic
     if (!billing) { res.status(503).send('Stripe billing unavailable'); return; }
     try { await billing.webhook(req.body as Buffer, req.header('stripe-signature') ?? ''); res.json({ received: true }); }
     catch (error) { req.log.error({ err: error }, 'stripe webhook failed'); res.status(400).send('Invalid Stripe webhook'); }
+  });
+  app.post('/webhooks/google/drive', async (req, res) => {
+    if (!knowledge) { res.sendStatus(503); return; }
+    try { await knowledge.notification(req.header('x-goog-channel-id') ?? '', req.header('x-goog-channel-token') ?? ''); res.sendStatus(204); }
+    catch (error) { req.log.error({ err: error }, 'drive notification failed'); res.sendStatus(403); }
+  });
+  app.post('/internal/knowledge/renew-channels', async (req, res) => {
+    if (!knowledge || !config.KNOWLEDGE_SYNC_SECRET || req.header('x-busios-sync-secret') !== config.KNOWLEDGE_SYNC_SECRET) { res.sendStatus(403); return; }
+    try { res.json(await knowledge.renewExpiring()); } catch (error) { req.log.error({ err: error }, 'drive channel renewal failed'); res.sendStatus(500); }
   });
   app.post('/api/portal/auth/magic-link', json, async (req, res) => {
     if (!portal) { res.status(503).json({ error: 'Owner portal unavailable' }); return; }
@@ -84,6 +95,41 @@ export function createApp(orchestrator: Orchestrator, voice?: MarisolVoiceServic
     if (!googleCalendar) { res.status(503).json({ error: 'Google Calendar integration unavailable' }); return; }
     try { const businessId = requiredBusinessId(req); await googleCalendar.authorizeUser(bearer(req), businessId); res.json(await googleCalendar.disconnect(businessId)); }
     catch (error) { integrationError(res, error); }
+  });
+  app.get('/integrations/google/drive/connect', async (req, res) => {
+    if (!knowledge) { res.status(503).json({ error: 'Google Drive integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req), userId = await knowledge.authorizeUser(bearer(req), businessId), businessName = String(req.query.businessName ?? 'My Business').trim().slice(0, 120); res.json({ authorizationUrl: await knowledge.connect(businessId, userId, businessName), expiresInSeconds: 600 }); }
+    catch (error) { integrationError(res, error); }
+  });
+  app.get('/integrations/google/drive/callback', async (req, res) => {
+    if (!knowledge) { res.status(503).send('Google Drive integration unavailable'); return; }
+    if (req.query.error) { res.status(400).send('Google Drive authorization was not granted.'); return; }
+    try { const result = await knowledge.callback(String(req.query.state ?? ''), String(req.query.code ?? '')); res.type('html').send(`<!doctype html><title>BusiOS Drive connected</title><main><h1>Live Knowledge Drive connected</h1><p>${escapeHtml(result.folderName)} is synchronized. <a href="/portal/">Return to BusiOS</a>.</p></main>`); }
+    catch (error) { req.log.error({ err: error }, 'drive oauth callback failed'); res.status(400).send('Google Drive connection failed or expired. Start again from BusiOS.'); }
+  });
+  app.get('/integrations/google/drive/status', async (req, res) => {
+    if (!knowledge) { res.status(503).json({ error: 'Google Drive integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req); await knowledge.authorizeUser(bearer(req), businessId); res.json(await knowledge.status(businessId)); } catch (error) { integrationError(res, error); }
+  });
+  app.post('/integrations/google/drive/sync', async (req, res) => {
+    if (!knowledge) { res.status(503).json({ error: 'Google Drive integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req); await knowledge.authorizeUser(bearer(req), businessId); res.json(await knowledge.sync(businessId)); } catch (error) { integrationError(res, error); }
+  });
+  app.get('/integrations/google/drive/picker-token', async (req, res) => {
+    if (!knowledge) { res.status(503).json({ error: 'Google Drive integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req); await knowledge.authorizeUser(bearer(req), businessId); res.set('cache-control', 'no-store').json(await knowledge.pickerToken(businessId)); } catch (error) { integrationError(res, error); }
+  });
+  app.post('/integrations/google/drive/select-folder', json, async (req, res) => {
+    if (!knowledge) { res.status(503).json({ error: 'Google Drive integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req); await knowledge.authorizeUser(bearer(req), businessId); res.json(await knowledge.selectFolder(businessId, String(req.body?.folderId ?? ''))); } catch (error) { integrationError(res, error); }
+  });
+  app.get('/api/portal/businesses/:businessId/knowledge/search', async (req, res) => {
+    if (!knowledge) { res.status(503).json({ error: 'Knowledge retrieval unavailable' }); return; }
+    try { await knowledge.authorizeUser(bearer(req), req.params.businessId); const agent = String(req.query.agent ?? 'DIEGO') as AgentId; if (!agentIds.includes(agent)) throw new Error('Registered agent is required'); res.json({ results: await knowledge.retrieve(req.params.businessId, agent, String(req.query.q ?? ''), Number(req.query.limit ?? 5)) }); } catch (error) { integrationError(res, error); }
+  });
+  app.delete('/integrations/google/drive', async (req, res) => {
+    if (!knowledge) { res.status(503).json({ error: 'Google Drive integration unavailable' }); return; }
+    try { const businessId = requiredBusinessId(req); await knowledge.authorizeUser(bearer(req), businessId); res.json(await knowledge.disconnect(businessId)); } catch (error) { integrationError(res, error); }
   });
   app.post('/webhooks/twilio/whatsapp', express.urlencoded({ extended: false }), async (req, res) => {
     if (!validTwilioRequest(req)) { res.status(403).send('Invalid Twilio signature'); return; }

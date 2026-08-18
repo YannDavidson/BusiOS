@@ -6,9 +6,10 @@ import type { Store } from './store.js';
 import { agentIds, type AgentId } from './agents/types.js';
 import { getAgent, listAgents } from './agents/registry.js';
 import type { MultiAgentRuntime } from './team-runtime.js';
+import { withLiveKnowledge, type KnowledgeRetriever } from './knowledge/context.js';
 
 export class Orchestrator {
-  constructor(private store: Store, private diego: IntelligenceEngine, private team?: MultiAgentRuntime) {}
+  constructor(private store: Store, private diego: IntelligenceEngine, private team?: MultiAgentRuntime, private knowledge?: KnowledgeRetriever) {}
 
   async handle(phone: string, body: string): Promise<string> {
     let state = await this.store.get(phone);
@@ -104,14 +105,15 @@ export class Orchestrator {
     }
     const signalPrefix = ['signals:', 'señales:', 'sinais:'].find((prefix) => normalized.startsWith(prefix));
     if (signalPrefix) {
-      const opportunity = await this.diego.detectOpportunity(state.brain, body.slice(signalPrefix.length), state.language);
+      const signals = body.slice(signalPrefix.length), brain = await withLiveKnowledge(state.brain, this.knowledge, state.businessId, 'DIEGO', signals);
+      const opportunity = await this.diego.detectOpportunity(brain, signals, state.language);
       state.pendingOpportunity = opportunity;
       await this.store.put(state);
       await this.store.audit(state.businessId, 'opportunity.proposed', opportunity);
       const labels = copy(state.language);
       return `📈 *${opportunity.insight_title}*\n\n${opportunity.observation}\n\n*${labels.recommendation}:* ${opportunity.recommendation}\n*${labels.impact}:* ${opportunity.predicted_impact}\n*${labels.confidence}:* ${Math.round(opportunity.confidence_score * 100)}%\n\n${labels.approve}`;
     }
-    return this.diego.respond(state.brain, body, state.language);
+    return this.diego.respond(await withLiveKnowledge(state.brain, this.knowledge, state.businessId, 'DIEGO', body), body, state.language);
   }
 }
 
