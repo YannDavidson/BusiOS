@@ -14,6 +14,8 @@ import { VerifiedActionService } from './actions/service.js';
 import { createGoogleOAuthStore, GoogleCalendarOAuthService } from './integrations/google-calendar.js';
 import { createOwnerPortalService } from './portal/service.js';
 import { createStripeBillingService } from './billing/stripe.js';
+import { createKnowledgeStore } from './knowledge/store.js';
+import { LiveKnowledgeDriveService } from './knowledge/google-drive.js';
 
 assertProductionConfig();
 const store = createStore();
@@ -27,7 +29,9 @@ const actionService = new VerifiedActionService(actionStore, {
   'callback.place': new TwilioCallbackConnector()
 });
 const googleCalendar = new GoogleCalendarOAuthService(createGoogleOAuthStore(), actionStore);
-const app = createApp(new Orchestrator(store, diego, new MultiAgentRuntime(store, diego)), new MarisolVoiceService(voiceStore, diego), actionService, googleCalendar, createOwnerPortalService(), createStripeBillingService());
+const knowledge = new LiveKnowledgeDriveService(createGoogleOAuthStore(), createKnowledgeStore());
+const team = new MultiAgentRuntime(store, diego, knowledge);
+const app = createApp(new Orchestrator(store, diego, team, knowledge), new MarisolVoiceService(voiceStore, diego), actionService, googleCalendar, createOwnerPortalService(), createStripeBillingService(), knowledge);
 const server = createServer(app);
 new RealtimeVoiceBridge(voiceStore, new GeminiLiveConnector()).attach(server);
 server.listen(config.PORT, () => console.log(`BusiOS listening on :${config.PORT}`));

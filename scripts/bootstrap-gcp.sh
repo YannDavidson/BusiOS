@@ -11,7 +11,7 @@ POOL="github"
 PROVIDER="busios"
 
 gcloud config set project "$PROJECT_ID"
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com iamcredentials.googleapis.com secretmanager.googleapis.com sts.googleapis.com
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com iamcredentials.googleapis.com secretmanager.googleapis.com sts.googleapis.com drive.googleapis.com picker.googleapis.com cloudscheduler.googleapis.com
 
 gcloud artifacts repositories describe busios --location="$REGION" >/dev/null 2>&1 || \
   gcloud artifacts repositories create busios --repository-format=docker --location="$REGION" --description="BusiOS production images"
@@ -42,7 +42,7 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
   --role=roles/iam.workloadIdentityUser \
   --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${GITHUB_REPOSITORY}"
 
-for secret in busios-gemini-api-key busios-twilio-account-sid busios-twilio-auth-token busios-supabase-url busios-supabase-service-role-key busios-app-encryption-key busios-google-oauth-client-id busios-google-oauth-client-secret busios-stripe-secret-key busios-stripe-webhook-secret busios-stripe-price-basic busios-stripe-price-growth busios-stripe-price-business; do
+for secret in busios-gemini-api-key busios-twilio-account-sid busios-twilio-auth-token busios-supabase-url busios-supabase-service-role-key busios-app-encryption-key busios-google-oauth-client-id busios-google-oauth-client-secret busios-google-picker-api-key busios-knowledge-sync-secret busios-stripe-secret-key busios-stripe-webhook-secret busios-stripe-price-basic busios-stripe-price-growth busios-stripe-price-business; do
   gcloud secrets describe "$secret" >/dev/null 2>&1 || gcloud secrets create "$secret" --replication-policy=automatic
 done
 
