@@ -56,6 +56,7 @@ The local service listens on port `8080`. `GET /health` reports readiness. A com
 - `docs/GOOGLE_CALENDAR_OAUTH.md` — tenant-authorized Calendar OAuth, selection, and revocation
 - `docs/OWNER_PORTAL.md` — passwordless tenant onboarding and owner command center
 - `docs/LIVE_KNOWLEDGE_DRIVE.md` — tenant Drive folders, safe ingestion, synchronization, citations, and retrieval
+- `docs/GOOGLE_ADK_RUNTIME.md` — opt-in ADK team, pilot controls, evaluations, and fallback
 - `docs/STRIPE_BILLING.md` — pricing, Checkout, webhooks, entitlements, and Customer Portal
 - `docs/DEPLOYMENT.md` — production and Twilio setup
 - `docs/CLOUD_RUN.md` — Google Cloud bootstrap and automated deployment
