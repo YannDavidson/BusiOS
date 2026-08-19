@@ -32,6 +32,10 @@ The canonical persona definitions live in `src/agents/registry.ts`. Every specia
 
 Each persona specifies its mission, personality, voice, expertise, responsibilities, inputs, outputs, tools, collaborators, escalation rules, guardrails, execution authority, and supported languages (English, Spanish, and Portuguese).
 
+## Google ADK pilot
+
+The optional ADK adapter converts the canonical registry into `LlmAgent` definitions with Diego as the root coordinator. Miguel and Lola are the initial pilot specialists. Supabase remains the durable session/task authority, Live Knowledge Drive supplies tenant-scoped cited context, and the verified action gateway is the only available action boundary. The legacy runtime remains the production default and immediate fallback. Marisol's realtime audio transport is not routed through this adapter. See [Google ADK Runtime](GOOGLE_ADK_RUNTIME.md).
+
 ## Safety and privacy
 
 - Twilio webhook signatures are mandatory outside tests.

@@ -48,17 +48,19 @@ export interface AgentTask {
 }
 
 export interface TeamIntelligence {
-  planTeam(brain: BusinessBrain, objective: string, language: SupportedLanguage): Promise<WorkPlan>;
-  runSpecialist(agent: AgentId, brain: BusinessBrain, assignment: AgentAssignment, language: SupportedLanguage): Promise<SpecialistResult>;
-  synthesizeTeam(brain: BusinessBrain, plan: WorkPlan, results: Array<{ agent: AgentId; result: SpecialistResult }>, language: SupportedLanguage): Promise<string>;
+  planTeam(brain: BusinessBrain, objective: string, language: SupportedLanguage, context?: TeamIntelligenceContext): Promise<WorkPlan>;
+  runSpecialist(agent: AgentId, brain: BusinessBrain, assignment: AgentAssignment, language: SupportedLanguage, context?: TeamIntelligenceContext): Promise<SpecialistResult>;
+  synthesizeTeam(brain: BusinessBrain, plan: WorkPlan, results: Array<{ agent: AgentId; result: SpecialistResult }>, language: SupportedLanguage, context?: TeamIntelligenceContext): Promise<string>;
 }
+
+export interface TeamIntelligenceContext { businessId: string; runId?: string; taskId?: string; }
 
 export class MultiAgentRuntime {
   constructor(private store: Store, private intelligence: TeamIntelligence, private knowledge?: KnowledgeRetriever) {}
 
   async plan(businessId: string, brain: BusinessBrain, objective: string, language: SupportedLanguage): Promise<TeamRun> {
     const enriched = await withLiveKnowledge(brain, this.knowledge, businessId, 'DIEGO', objective);
-    const plan = workPlanSchema.parse(await this.intelligence.planTeam(enriched, objective, language));
+    const plan = workPlanSchema.parse(await this.intelligence.planTeam(enriched, objective, language, { businessId }));
     const requiresApproval = plan.requiresOwnerApproval || plan.assignments.some((item) => item.requiresOwnerApproval || item.risk !== 'informational');
     const now = new Date().toISOString();
     const run: TeamRun = { id: randomUUID(), businessId, objective, language, plan: { ...plan, requiresOwnerApproval: requiresApproval }, status: requiresApproval ? 'awaiting_approval' : 'planned', createdAt: now, updatedAt: now };
@@ -77,14 +79,14 @@ export class MultiAgentRuntime {
       for (const task of tasks) {
         await this.store.updateAgentTask(task.id, 'running');
         const enriched = await withLiveKnowledge(brain, this.knowledge, run.businessId, task.assignment.agent, task.assignment.objective);
-        const result = specialistResultSchema.parse(await this.intelligence.runSpecialist(task.assignment.agent, enriched, task.assignment, run.language));
+        const result = specialistResultSchema.parse(await this.intelligence.runSpecialist(task.assignment.agent, enriched, task.assignment, run.language, { businessId: run.businessId, runId: run.id, taskId: task.id }));
         // Until a verified adapter records an execution receipt, agents may analyze and draft only.
         result.executionReady = false;
         await this.store.updateAgentTask(task.id, 'completed', result);
         results.push({ agent: task.assignment.agent, result });
       }
       const synthesisBrain = await withLiveKnowledge(brain, this.knowledge, run.businessId, 'DIEGO', run.objective);
-      const synthesis = await this.intelligence.synthesizeTeam(synthesisBrain, run.plan, results, run.language);
+      const synthesis = await this.intelligence.synthesizeTeam(synthesisBrain, run.plan, results, run.language, { businessId: run.businessId, runId: run.id });
       await this.store.updateTeamRun(run.id, 'completed', synthesis);
       await this.store.audit(run.businessId, 'team.run.completed', { runId: run.id, results, synthesis });
       return { ...run, status: 'completed', synthesis, updatedAt: new Date().toISOString() };
@@ -104,7 +106,7 @@ export class MultiAgentRuntime {
     const task: AgentTask = { id: randomUUID(), runId: run.id, businessId, assignment, status: 'running', createdAt: now, updatedAt: now };
     await this.store.createTeamRun(run, [task]);
     const enriched = await withLiveKnowledge(brain, this.knowledge, businessId, agent, objective);
-    const result = specialistResultSchema.parse(await this.intelligence.runSpecialist(agent, enriched, assignment, language));
+    const result = specialistResultSchema.parse(await this.intelligence.runSpecialist(agent, enriched, assignment, language, { businessId, runId: run.id, taskId: task.id }));
     result.executionReady = false;
     await this.store.updateAgentTask(task.id, 'completed', result);
     await this.store.updateTeamRun(run.id, 'completed', result.summary);

@@ -17,6 +17,6 @@ jobs:
       - name: Pin npm toolchain
         run: npm install --global npm@11.9.0
       - name: Install locked dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --legacy-peer-deps --no-audit --no-fund
       - run: npm run check
       - run: docker build -t busios-ai:${{ github.sha }} .
